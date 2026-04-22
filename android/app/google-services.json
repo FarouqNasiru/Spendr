@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "535703340099",
+    "project_id": "spendr-bbb7d",
+    "storage_bucket": "spendr-bbb7d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:535703340099:android:c65ff816dd9aff013e40f6",
+        "android_client_info": {
+          "package_name": "com.example.spendr"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "535703340099-sm0bmaf1jblkknukc0ickv9ck6mdb2pd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.spendr",
+            "certificate_hash": "6dfa1fedcf4860a1c375ff2f9cd613b789b1dceb"
+          }
+        },
+        {
+          "client_id": "535703340099-0jfk2pn8jjurh24ppm7bne43m0fnsmsc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBY4IRl-FOWm7_Mu5rEF3ESTev6IkiNbsg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "535703340099-0jfk2pn8jjurh24ppm7bne43m0fnsmsc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "535703340099-e3beqcai12o2rrr6uhg8hggs23ajvbn7.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.spendr"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
