@@ -3,15 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../screens/paystack_webview_screen.dart';
+import '../config/app_config.dart';
 
 class PaystackService {
   /// The URL our backend /generate-payment sends as callback_url to Paystack.
   /// After payment, Paystack redirects to this URL — we intercept it in the WebView.
   static const String _callbackUrl = 'https://spendr.app/payment-callback';
 
-  // Replace with your Render URL once deployed.
-  // Use 'http://10.0.2.2:3000' for Android emulator, 'http://localhost:3000' for iOS simulator.
-  static const String backendUrl = "https://spendr-backend-07gy.onrender.com";
+  /// Backend URL — set at build time via --dart-define=BACKEND_URL=...
+  /// See lib/core/config/app_config.dart for details.
+  static String get backendUrl => AppConfig.backendUrl;
 
   /// Opens the Paystack payment page in an in-app WebView.
   /// Returns the transaction [reference] if the user completes payment, or null if cancelled.

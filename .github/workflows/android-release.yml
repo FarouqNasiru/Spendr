@@ -33,7 +33,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --dart-define=BACKEND_URL=${{ secrets.BACKEND_URL }}
 
       - name: Create Release and Upload APK
         uses: softprops/action-gh-release@v2
