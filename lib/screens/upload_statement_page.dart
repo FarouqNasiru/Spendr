@@ -7,7 +7,7 @@ import 'package:spendr/core/providers/premium_provider.dart';
 import 'package:spendr/screens/billing_page.dart';
 import 'package:spendr/screens/auth_screen.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart'; // For mime type lookup
 import 'package:spendr/screens/review_transactions_page.dart';
 import '../core/services/ad_service.dart';
@@ -24,20 +24,10 @@ class _UploadStatementPageState extends State<UploadStatementPage> {
   bool _isAnalyzing = false;
   String? _statusMessage;
 
-  final model = GenerativeModel(
-    model: 'gemini-2.5-flash',
-    apiKey: AppConfig.geminiApiKey,
-  );
-
   Future<void> _pickAndAnalyzeFile() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       _showLoginPrompt();
-      return;
-    }
-
-    if (AppConfig.geminiApiKey.isEmpty) {
-      setState(() => _statusMessage = "Please set your Gemini API Key in AppConfig!");
       return;
     }
 
@@ -218,36 +208,29 @@ class _UploadStatementPageState extends State<UploadStatementPage> {
   Future<void> _extractTransactions(File file) async {
     final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
     final bytes = await file.readAsBytes();
+    final fileBase64 = base64Encode(bytes);
 
-    final prompt = TextPart("""
-      Analyze this bank statement image/PDF. 
-      Extract all transaction line items.
-      
-      Return ONLY a raw JSON array. Do not include markdown formatting (like ```json).
-      Each object in the array should have:
-      - "date": String (Format YYYY-MM-DD)
-      - "description": String (Extract the narration. If no narration is present, use the receiving account name/merchant name. Be consistent for the same merchant.)
-      - "amount": Double (Positive number)
-      - "type": String (Either "Expense" or "Income")
-      - "category": String (Guess the category based on description, e.g., "Food", "Travel", "Salary", "Health", "Subs")
-      
-      Example output:
-      [
-        {"date": "2024-02-20", "description": "Starbucks", "amount": 5.50, "type": "Expense", "category": "Food"},
-        {"date": "2024-02-21", "description": "Payroll", "amount": 2500.00, "type": "Income", "category": "Salary"}
-      ]
-    """);
+    final response = await http.post(
+      Uri.parse("${AppConfig.backendUrl}/parse-statement"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "fileBase64": fileBase64,
+        "mimeType": mimeType,
+      }),
+    );
 
-    final imagePart = DataPart(mimeType, bytes);
-    final response = await model.generateContent([
-      Content.multi([prompt, imagePart]),
-    ]);
+    if (response.statusCode != 200) {
+      try {
+        final err = jsonDecode(response.body)['error'];
+        throw err ?? "Failed to parse statement (${response.statusCode})";
+      } catch (e) {
+        if (e is String) rethrow;
+        throw "Failed to parse statement (${response.statusCode})";
+      }
+    }
 
-    final responseText = response.text;
-    if (responseText == null) throw "No data found";
-
-    String cleanJson = responseText.replaceAll(RegExp(r'```json|```'), '').trim();
-    List<dynamic> parsedData = jsonDecode(cleanJson);
+    final data = jsonDecode(response.body);
+    List<dynamic> parsedData = data['transactions'] ?? [];
 
     if (mounted) {
       Navigator.push(
