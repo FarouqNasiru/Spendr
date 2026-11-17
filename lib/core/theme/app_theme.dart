@@ -1,6 +1,7 @@
 // lib/core/theme/app_theme.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_text_styles.dart';
 
 // 1. First, let's define the specific colors used in your designs
@@ -24,6 +25,7 @@ class AppTheme {
   /// 🌞 LIGHT THEME
   static final ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
+    fontFamily: GoogleFonts.poppins().fontFamily,
     scaffoldBackgroundColor: AppColors.background,
     primaryColor: AppColors.primary,
 
@@ -69,6 +71,7 @@ class AppTheme {
   /// 🌚 DARK THEME
   static final ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
+    fontFamily: GoogleFonts.poppins().fontFamily,
     scaffoldBackgroundColor: AppColors.secondary, // Navy Background
     primaryColor: AppColors.primary,
 
@@ -93,18 +96,15 @@ class AppTheme {
       foregroundColor: Colors.black,
     ),
 
-    textTheme: const TextTheme(
-      headlineLarge: TextStyle(
-        fontSize: 28,
-        fontWeight: FontWeight.bold,
+    textTheme: TextTheme(
+      headlineLarge: AppTextStyles.heading1.copyWith(
         color: Colors.white,
       ),
-      headlineMedium: TextStyle(
-        fontSize: 24,
-        fontWeight: FontWeight.bold,
+      headlineMedium: AppTextStyles.heading2.copyWith(
         color: Colors.white,
       ),
-      bodyMedium: TextStyle(fontSize: 16, color: Colors.white70),
+      bodyMedium: AppTextStyles.body.copyWith(color: Colors.white70),
+      labelLarge: AppTextStyles.label.copyWith(color: Colors.white),
     ),
 
     colorScheme: const ColorScheme.dark(

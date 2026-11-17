@@ -300,30 +300,40 @@ class _ActivityPageState extends State<ActivityPage> {
                 Offset.zero & overlay.size,
               );
 
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              final Color itemColor = isDark ? Colors.white : Colors.black;
+
               showMenu<String>(
                 context: context,
                 position: position,
+                color: isDark ? const Color(0xFF1E2D3D) : Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
                 ),
                 items: [
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'add',
                     child: Row(
                       children: [
-                        Icon(Icons.add, color: Colors.black),
-                        SizedBox(width: 10),
-                        Text('Add Transaction'),
+                        Icon(Icons.add, color: itemColor),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Add Transaction',
+                          style: TextStyle(color: itemColor),
+                        ),
                       ],
                     ),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'upload',
                     child: Row(
                       children: [
-                        Icon(Icons.upload_file, color: Colors.black),
-                        SizedBox(width: 10),
-                        Text('Upload Statement'),
+                        Icon(Icons.upload_file, color: itemColor),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Upload Statement',
+                          style: TextStyle(color: itemColor),
+                        ),
                       ],
                     ),
                   ),

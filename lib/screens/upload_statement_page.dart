@@ -11,6 +11,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:mime/mime.dart'; // For mime type lookup
 import 'package:spendr/screens/review_transactions_page.dart';
 import '../core/services/ad_service.dart';
+import '../core/config/app_config.dart';
 
 class UploadStatementPage extends StatefulWidget {
   const UploadStatementPage({super.key});
@@ -23,8 +24,10 @@ class _UploadStatementPageState extends State<UploadStatementPage> {
   bool _isAnalyzing = false;
   String? _statusMessage;
 
-  static const String _apiKey = 'AIzaSyCSa7eQvv4ZtwTGiJNhB3O9r372Asay11M';
-  final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
+  final model = GenerativeModel(
+    model: 'gemini-2.5-flash',
+    apiKey: AppConfig.geminiApiKey,
+  );
 
   Future<void> _pickAndAnalyzeFile() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -33,8 +36,8 @@ class _UploadStatementPageState extends State<UploadStatementPage> {
       return;
     }
 
-    if (_apiKey == 'YOUR_API_KEY_HERE') {
-      setState(() => _statusMessage = "Please set your API Key in the code!");
+    if (AppConfig.geminiApiKey.isEmpty) {
+      setState(() => _statusMessage = "Please set your Gemini API Key in AppConfig!");
       return;
     }
 

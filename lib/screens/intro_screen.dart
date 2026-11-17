@@ -180,7 +180,7 @@ class _IntroScreenState extends State<IntroScreen> {
                   left: w * 0.25,
                   child: _buildShadowContainer(
                     child: Image.asset(
-                      'lib/assets/images/card.png',
+                      'lib/assets/images/card3.png',
                       width: w * 0.7,
                       fit: BoxFit.contain,
                     ),

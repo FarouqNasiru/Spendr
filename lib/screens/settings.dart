@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/theme_provider.dart';
@@ -356,9 +357,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           children: [
                             Text(
                               _userName,
-                              style: const TextStyle(
-                                color:
-                                    Colors.white, // Always White on Navy Card
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -368,7 +368,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 padding: const EdgeInsets.only(top: 4.0),
                                 child: Text(
                                   FirebaseAuth.instance.currentUser!.email!,
-                                  style: TextStyle(
+                                  style: GoogleFonts.poppins(
                                     color: Colors.white.withAlpha(179), // ~70% opacity
                                     fontSize: 14,
                                   ),
@@ -447,10 +447,30 @@ class _SettingsPageState extends State<SettingsPage> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: _testNotification,
-                    icon: const Icon(Icons.notifications_active),
-                    label: const Text(
+                    icon: Icon(
+                      Icons.notifications_active,
+                      color: theme.brightness == Brightness.dark
+                          ? Colors.white
+                          : colorScheme.secondary,
+                    ),
+                    label: Text(
                       "Test Notification Now",
-                      style: TextStyle(color: Colors.black),
+                      style: TextStyle(
+                        color: theme.brightness == Brightness.dark
+                            ? Colors.white
+                            : Colors.black,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: theme.brightness == Brightness.dark
+                            ? Colors.white38
+                            : Colors.black26,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                     ),
                   ),
                 ),
