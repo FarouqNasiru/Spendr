@@ -46,6 +46,3 @@ app.*.map.json
 
 # Backend (separate repo)
 /spendr_backend/
-
-# Local App Config (contains secrets)
-lib/core/config/app_config.dart
