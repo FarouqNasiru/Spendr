@@ -6,6 +6,7 @@ import 'package:spendr/core/providers/transaction_provider.dart';
 import 'package:spendr/screens/intro_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:spendr/core/services/notification_service.dart';
+import 'package:spendr/core/services/smart_reminder_service.dart';
 import 'package:spendr/core/services/ad_service.dart';
 import 'package:spendr/core/services/iap_service.dart';
 import 'package:spendr/core/providers/category_provider.dart';
@@ -22,6 +23,7 @@ void main() async {
   );
   // Initialize notifications and wait for timezone config
   await NotificationService().init();
+  SmartReminderService().init();
   
   // Initialize AdMob and In-App Purchases
   await AdService().init();

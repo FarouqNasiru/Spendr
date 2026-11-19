@@ -12,6 +12,7 @@ import '../../core/providers/auth_provider.dart';
 import 'auth_screen.dart';
 import '../../core/services/firestore_service.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import '../../core/services/smart_reminder_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -25,6 +26,10 @@ class _SettingsPageState extends State<SettingsPage> {
   String reminderFrequency = 'Daily';
   TimeOfDay reminderTime = const TimeOfDay(hour: 9, minute: 0);
   String _userName = '';
+  bool isSmartRemindersEnabled = false;
+  bool hasNotificationListenerPermission = false;
+  bool hasUsageStatsPermission = false;
+  List<MonitoredBank> _monitoredBanks = [];
 
   @override
   void initState() {
@@ -34,6 +39,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
+    final status = await SmartReminderService().checkPermissions();
+    final banks = await SmartReminderService().getMonitoredBanks();
     setState(() {
       _userName = prefs.getString('user_name') ?? 'Guest';
       isBiometricsEnabled = prefs.getBool('is_biometric_enabled') ?? false;
@@ -41,6 +48,10 @@ class _SettingsPageState extends State<SettingsPage> {
       final hour = prefs.getInt('reminder_hour') ?? 9;
       final minute = prefs.getInt('reminder_minute') ?? 0;
       reminderTime = TimeOfDay(hour: hour, minute: minute);
+      isSmartRemindersEnabled = status.isEnabled;
+      hasNotificationListenerPermission = status.hasNotificationListenerPermission;
+      hasUsageStatsPermission = status.hasUsageStatsPermission;
+      _monitoredBanks = banks;
     });
   }
 
@@ -182,6 +193,596 @@ class _SettingsPageState extends State<SettingsPage> {
     await NotificationService().showInstantNotification(
       title: 'Spendr Test',
       body: 'Remember to log your transactions!',
+    );
+  }
+
+  Future<void> _refreshSmartReminderStatus() async {
+    final status = await SmartReminderService().checkPermissions();
+    final banks = await SmartReminderService().getMonitoredBanks();
+    if (mounted) {
+      setState(() {
+        isSmartRemindersEnabled = status.isEnabled;
+        hasNotificationListenerPermission = status.hasNotificationListenerPermission;
+        hasUsageStatsPermission = status.hasUsageStatsPermission;
+        _monitoredBanks = banks;
+      });
+    }
+  }
+
+  Future<void> _handleSmartReminderMasterToggle(bool value) async {
+    await SmartReminderService().setSmartRemindersEnabled(value);
+    setState(() => isSmartRemindersEnabled = value);
+    if (value && (!hasNotificationListenerPermission || !hasUsageStatsPermission)) {
+      if (mounted) {
+        _showSmartReminderModal();
+      }
+    }
+  }
+
+  Future<void> _requestNotificationAccess() async {
+    final proceed = await _showPermissionDisclosure(
+      title: "Bank Notification Access",
+      icon: Icons.notifications_active_outlined,
+      description:
+          "Spendr uses Notification Access to detect debit and credit alerts from your banking apps so you can instantly log transactions.\n\n"
+          "• All notification parsing happens 100% locally on your phone.\n"
+          "• Spendr never reads personal messages, SMS, or private chats.\n"
+          "• No financial data is ever collected or sent to external servers.",
+    );
+
+    if (proceed == true) {
+      await SmartReminderService().requestNotificationListenerPermission();
+      Future.delayed(const Duration(seconds: 1), _refreshSmartReminderStatus);
+    }
+  }
+
+  Future<void> _requestUsageAccess() async {
+    final proceed = await _showPermissionDisclosure(
+      title: "Bank App Usage Access",
+      icon: Icons.hourglass_top_outlined,
+      description:
+          "Spendr uses App Usage Access to detect when you open banking apps, serving as a backup reminder to record your transfers and payments.\n\n"
+          "• App launch checks run 100% locally on your device.\n"
+          "• Spendr only checks for registered banking apps.\n"
+          "• No sensitive usage history or personal data is collected or shared.",
+    );
+
+    if (proceed == true) {
+      await SmartReminderService().requestUsageStatsPermission();
+      Future.delayed(const Duration(seconds: 1), _refreshSmartReminderStatus);
+    }
+  }
+
+  Future<bool?> _showPermissionDisclosure({
+    required String title,
+    required IconData icon,
+    required String description,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? colorScheme.surface : Colors.white,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withAlpha(50),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: isDark ? colorScheme.primary : colorScheme.secondary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          description,
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            height: 1.5,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              "Not Now",
+              style: TextStyle(
+                color: isDark ? Colors.white54 : Colors.grey.shade600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text(
+              "Continue to Settings",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSmartReminderModal() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: isDark ? colorScheme.surface : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : Colors.black12,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Smart Bank Reminders",
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : colorScheme.secondary,
+                            ),
+                          ),
+                          Text(
+                            "Auto-detect bank alerts & prompts to log",
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: isDark ? Colors.white60 : Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(modalContext),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withAlpha(10) : Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark ? Colors.white12 : Colors.green.shade200,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.shield_outlined, color: Colors.green.shade600, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  "100% On-Device Privacy: Notification text and app usage are parsed entirely on your phone. No financial data leaves your device.",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.white70 : Colors.green.shade900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          "DETECTION METHODS",
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                            color: isDark ? Colors.white38 : Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildPermissionCard(
+                          title: "Instant Bank Alert Reader",
+                          subtitle: "Reads debit/credit notifications and pre-fills amounts",
+                          isGranted: hasNotificationListenerPermission,
+                          icon: Icons.notifications_active_outlined,
+                          onAction: () async {
+                            await _requestNotificationAccess();
+                            setModalState(() {});
+                          },
+                          colorScheme: colorScheme,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildPermissionCard(
+                          title: "Bank App Open Detector",
+                          subtitle: "Backup reminder when you open and use your banking apps",
+                          isGranted: hasUsageStatsPermission,
+                          icon: Icons.hourglass_top_outlined,
+                          onAction: () async {
+                            await _requestUsageAccess();
+                            setModalState(() {});
+                          },
+                          colorScheme: colorScheme,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 20),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            await SmartReminderService().testBankReminder();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Test bank notification triggered! Check your notification shade.'),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.bolt),
+                          label: const Text("Test Bank Alert Notification Now"),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark ? colorScheme.primary : colorScheme.secondary,
+                            side: BorderSide(
+                              color: isDark ? colorScheme.primary.withAlpha(120) : colorScheme.secondary.withAlpha(120),
+                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "MONITORED BANKS",
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.1,
+                                color: isDark ? Colors.white38 : Colors.grey.shade600,
+                              ),
+                            ),
+                            Text(
+                              "${_monitoredBanks.where((b) => b.isEnabled).length} active",
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ..._monitoredBanks.map((bank) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withAlpha(8) : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark ? Colors.white10 : Colors.black12,
+                              ),
+                            ),
+                            child: SwitchListTile(
+                              title: Text(
+                                bank.name,
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              subtitle: Text(
+                                bank.package,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: isDark ? Colors.white38 : Colors.black45,
+                                ),
+                              ),
+                              value: bank.isEnabled,
+                              activeThumbColor: colorScheme.secondary,
+                              activeTrackColor: colorScheme.primary,
+                              onChanged: (val) async {
+                                bank.isEnabled = val;
+                                final enabledPackages = _monitoredBanks
+                                    .where((b) => b.isEnabled)
+                                    .map((b) => b.package)
+                                    .toList();
+                                await SmartReminderService().setMonitoredBanks(enabledPackages);
+                                setModalState(() {});
+                                setState(() {});
+                              },
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPermissionCard({
+    required String title,
+    required String subtitle,
+    required bool isGranted,
+    required IconData icon,
+    required VoidCallback onAction,
+    required ColorScheme colorScheme,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withAlpha(12) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isGranted ? Colors.green.withAlpha(120) : (isDark ? Colors.white12 : Colors.black12),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isGranted
+                  ? Colors.green.withAlpha(40)
+                  : (isDark ? Colors.white10 : Colors.black12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: isGranted
+                  ? Colors.green
+                  : (isDark ? Colors.white70 : colorScheme.secondary),
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: isDark ? Colors.white54 : Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (isGranted)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.green.withAlpha(40),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check, size: 14, color: Colors.green),
+                  const SizedBox(width: 4),
+                  Text(
+                    "Active",
+                    style: GoogleFonts.poppins(
+                      color: Colors.green,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ElevatedButton(
+              onPressed: onAction,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              child: const Text("Enable", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmartReminderCard(ColorScheme colorScheme, TextTheme textTheme) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isConfigured = hasNotificationListenerPermission || hasUsageStatsPermission;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(
+          color: isSmartRemindersEnabled && isConfigured
+              ? colorScheme.primary.withAlpha(120)
+              : Colors.transparent,
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isSmartRemindersEnabled
+                      ? colorScheme.primary.withAlpha(50)
+                      : (isDark ? Colors.white10 : Colors.black12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.auto_awesome,
+                  color: isSmartRemindersEnabled
+                      ? (isDark ? colorScheme.primary : colorScheme.secondary)
+                      : (isDark ? Colors.white70 : Colors.grey),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Smart Bank Reminders",
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isSmartRemindersEnabled
+                          ? (isConfigured ? "Active & monitoring" : "Setup permissions")
+                          : "Auto-detect bank alerts & app launch",
+                      style: textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: isSmartRemindersEnabled,
+                onChanged: _handleSmartReminderMasterToggle,
+                activeThumbColor: colorScheme.secondary,
+                activeTrackColor: colorScheme.primary,
+              ),
+            ],
+          ),
+          if (isSmartRemindersEnabled) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: _showSmartReminderModal,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          isConfigured ? Icons.check_circle_outline : Icons.error_outline,
+                          size: 16,
+                          color: isConfigured ? Colors.greenAccent.shade700 : Colors.orangeAccent,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isConfigured
+                              ? "${_monitoredBanks.where((b) => b.isEnabled).length} banks monitored"
+                              : "Tap to grant Android permissions",
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : colorScheme.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          "Configure",
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: isDark ? colorScheme.primary : colorScheme.secondary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 12,
+                          color: isDark ? colorScheme.primary : colorScheme.secondary,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -408,6 +1009,8 @@ class _SettingsPageState extends State<SettingsPage> {
               colorScheme,
               textTheme,
             ),
+            const SizedBox(height: 15),
+            _buildSmartReminderCard(colorScheme, textTheme),
 
             const SizedBox(height: 30),
 
@@ -638,7 +1241,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: colorScheme.secondary, // Navy thumb
+            activeThumbColor: colorScheme.secondary, // Navy thumb
             activeTrackColor: colorScheme.primary, // Lime track
           ),
         ],

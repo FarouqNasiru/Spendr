@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.spendr">
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
     <application
         android:label="spendr"
         android:name="${applicationName}"
@@ -61,6 +63,17 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
         </receiver>
+
+        <!-- Smart Bank Notification Listener Service -->
+        <service
+            android:name=".BankNotificationListenerService"
+            android:label="Spendr Transaction Assistant"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
     </application>
 

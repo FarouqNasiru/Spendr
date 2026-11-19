@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:spendr/screens/add_transactions.dart';
 import 'package:spendr/screens/settings.dart';
@@ -10,6 +11,7 @@ import '../../core/providers/transaction_provider.dart';
 import '../../models/transaction_model.dart';
 import 'package:spendr/screens/upload_statement_page.dart';
 import 'transfers_page.dart';
+import '../core/services/smart_reminder_service.dart';
 
 class ActivityPage extends StatefulWidget {
   const ActivityPage({super.key});
@@ -22,6 +24,7 @@ class _ActivityPageState extends State<ActivityPage> {
   String selectedTimeFrame = 'Month';
   String _categoryViewType = 'Expense';
   String _userName = '';
+  StreamSubscription<Map<String, dynamic>>? _smartReminderSub;
 
   // Period navigation
   late int _selectedYear;
@@ -41,6 +44,51 @@ class _ActivityPageState extends State<ActivityPage> {
     _selectedMonth = now.month;
     _selectedWeekOffset = 0;
     _loadData();
+    _initSmartReminders();
+  }
+
+  @override
+  void dispose() {
+    _smartReminderSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initSmartReminders() async {
+    // Check if the app was launched by tapping a smart reminder notification
+    final initialPrompt = await SmartReminderService().getInitialPrompt();
+    if (initialPrompt != null && mounted) {
+      _handleSmartReminder(initialPrompt);
+    }
+
+    // Listen for incoming transaction reminders while active
+    _smartReminderSub = SmartReminderService().promptStream.listen((prompt) {
+      if (mounted) {
+        _handleSmartReminder(prompt);
+      }
+    });
+  }
+
+  void _handleSmartReminder(Map<String, dynamic> prompt) {
+    final rawAmount = prompt['amount'];
+    final double? amount = rawAmount is num ? rawAmount.toDouble() : null;
+    final type = prompt['type'] as String? ?? 'Expense';
+    final bank = prompt['bank'] as String? ?? '';
+    final note = prompt['note'] as String? ?? (bank.isNotEmpty ? 'Bank: $bank' : null);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddTransactionPage(
+          initialAmount: amount != null && amount > 0 ? amount : null,
+          initialType: type,
+          initialNote: note,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        _loadData();
+      }
+    });
   }
 
   Future<void> _loadData() async {

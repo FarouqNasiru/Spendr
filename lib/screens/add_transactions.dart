@@ -10,7 +10,18 @@ import '../utils/constants.dart';
 import 'add_category.dart';
 
 class AddTransactionPage extends StatefulWidget {
-  const AddTransactionPage({super.key});
+  final double? initialAmount;
+  final String? initialType; // 'Expense' or 'Income'
+  final String? initialCategory;
+  final String? initialNote;
+
+  const AddTransactionPage({
+    super.key,
+    this.initialAmount,
+    this.initialType,
+    this.initialCategory,
+    this.initialNote,
+  });
 
   @override
   State<AddTransactionPage> createState() => _AddTransactionPageState();
@@ -20,6 +31,21 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   bool isExpense = true;
   String selectedCategory = 'Travelling';
   final TextEditingController _amountController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialType != null) {
+      isExpense = widget.initialType == 'Expense';
+    }
+    if (widget.initialAmount != null && widget.initialAmount! > 0) {
+      final amt = widget.initialAmount!;
+      _amountController.text = amt % 1.0 == 0.0 ? amt.toInt().toString() : amt.toStringAsFixed(2);
+    }
+    if (widget.initialCategory != null) {
+      selectedCategory = widget.initialCategory!;
+    }
+  }
 
   void _goToAddCategory() {
     Navigator.push(
