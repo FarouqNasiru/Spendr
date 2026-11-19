@@ -58,14 +58,12 @@ class MainActivity : FlutterFragmentActivity() {
             setMethodCallHandler { call, result ->
                 when (call.method) {
                     "checkPermissions" -> {
-                        val hasNotif = NotificationManagerCompat.getEnabledListenerPackages(this@MainActivity)
-                            .contains(packageName)
                         val hasUsage = BankUsageWorker.hasUsageStatsPermission(this@MainActivity)
                         val isEnabled = BankAppConfig.isEnabled(this@MainActivity)
 
                         result.success(
                             mapOf(
-                                "notificationListener" to hasNotif,
+                                "notificationListener" to false,
                                 "usageStats" to hasUsage,
                                 "isEnabled" to isEnabled
                             )
@@ -73,15 +71,7 @@ class MainActivity : FlutterFragmentActivity() {
                     }
 
                     "requestNotificationListenerPermission" -> {
-                        try {
-                            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                            }
-                            startActivity(intent)
-                            result.success(true)
-                        } catch (e: Exception) {
-                            result.error("ERROR", e.message, null)
-                        }
+                        result.success(true)
                     }
 
                     "requestUsageStatsPermission" -> {

@@ -64,17 +64,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- Smart Bank Notification Listener Service -->
-        <service
-            android:name=".BankNotificationListenerService"
-            android:label="Spendr Transaction Assistant"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
-
     </application>
 
     <!-- Required to query activities that can process text, see:

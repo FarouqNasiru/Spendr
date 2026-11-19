@@ -212,7 +212,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _handleSmartReminderMasterToggle(bool value) async {
     await SmartReminderService().setSmartRemindersEnabled(value);
     setState(() => isSmartRemindersEnabled = value);
-    if (value && (!hasNotificationListenerPermission || !hasUsageStatsPermission)) {
+    if (value && !hasUsageStatsPermission) {
       if (mounted) {
         _showSmartReminderModal();
       }
@@ -378,7 +378,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
                           Text(
-                            "Auto-detect bank alerts & prompts to log",
+                            "Auto-detect bank app launch & prompts to log",
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               color: isDark ? Colors.white60 : Colors.black54,
@@ -412,7 +412,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  "100% On-Device Privacy: Notification text and app usage are parsed entirely on your phone. No financial data leaves your device.",
+                                  "100% On-Device Privacy: App usage is checked entirely on your phone. Spendr only checks for registered banking apps. No financial data leaves your device.",
                                   style: GoogleFonts.poppins(
                                     fontSize: 12,
                                     color: isDark ? Colors.white70 : Colors.green.shade900,
@@ -424,7 +424,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          "DETECTION METHODS",
+                          "DETECTION METHOD",
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -434,21 +434,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         const SizedBox(height: 10),
                         _buildPermissionCard(
-                          title: "Instant Bank Alert Reader",
-                          subtitle: "Reads debit/credit notifications and pre-fills amounts",
-                          isGranted: hasNotificationListenerPermission,
-                          icon: Icons.notifications_active_outlined,
-                          onAction: () async {
-                            await _requestNotificationAccess();
-                            setModalState(() {});
-                          },
-                          colorScheme: colorScheme,
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildPermissionCard(
                           title: "Bank App Open Detector",
-                          subtitle: "Backup reminder when you open and use your banking apps",
+                          subtitle: "Reminds you to log your transaction after using your bank",
                           isGranted: hasUsageStatsPermission,
                           icon: Icons.hourglass_top_outlined,
                           onAction: () async {
@@ -658,7 +645,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildSmartReminderCard(ColorScheme colorScheme, TextTheme textTheme) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isConfigured = hasNotificationListenerPermission || hasUsageStatsPermission;
+    final isConfigured = hasUsageStatsPermission;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -709,7 +696,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     Text(
                       isSmartRemindersEnabled
                           ? (isConfigured ? "Active & monitoring" : "Setup permissions")
-                          : "Auto-detect bank alerts & app launch",
+                          : "Auto-detect banking app launch",
                       style: textTheme.bodySmall?.copyWith(
                         color: isDark ? Colors.white70 : Colors.black54,
                         fontSize: 12,
@@ -749,7 +736,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         Text(
                           isConfigured
                               ? "${_monitoredBanks.where((b) => b.isEnabled).length} banks monitored"
-                              : "Tap to grant Android permissions",
+                              : "Tap to grant Usage Access",
                           style: GoogleFonts.poppins(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
