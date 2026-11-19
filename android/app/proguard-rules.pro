@@ -11,3 +11,8 @@
 -dontwarn com.google.android.gms.auth.api.credentials.CredentialsClient
 -dontwarn com.google.android.gms.auth.api.credentials.HintRequest$Builder
 -dontwarn com.google.android.gms.auth.api.credentials.HintRequest
+
+# Keep WorkManager worker
+-keep class com.example.spendr.BankUsageWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
