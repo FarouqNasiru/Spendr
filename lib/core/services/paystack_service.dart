@@ -14,6 +14,14 @@ class PaystackService {
   /// See lib/core/config/app_config.dart for details.
   static String get backendUrl => AppConfig.backendUrl;
 
+  /// Pre-warms the backend if it is asleep (e.g. Render free tier cold start).
+  /// Safe to call fire-and-forget; ignores errors.
+  static void warmUpBackend() {
+    try {
+      http.get(Uri.parse(backendUrl)).catchError((_) => http.Response('', 500));
+    } catch (_) {}
+  }
+
   /// Opens the Paystack payment page in an in-app WebView.
   /// Returns the transaction [reference] if the user completes payment, or null if cancelled.
   static Future<String?> checkout({

@@ -12,6 +12,7 @@ import 'package:mime/mime.dart'; // For mime type lookup
 import 'package:spendr/screens/review_transactions_page.dart';
 import '../core/services/ad_service.dart';
 import '../core/config/app_config.dart';
+import '../core/services/paystack_service.dart';
 
 class UploadStatementPage extends StatefulWidget {
   const UploadStatementPage({super.key});
@@ -20,9 +21,31 @@ class UploadStatementPage extends StatefulWidget {
   State<UploadStatementPage> createState() => _UploadStatementPageState();
 }
 
-class _UploadStatementPageState extends State<UploadStatementPage> {
-  bool _isAnalyzing = false;
+class _UploadStatementPageState extends State<UploadStatementPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final Animation<double> _scaleAnimation;
+  bool _isLoading = false;
   String? _statusMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    PaystackService.warmUpBackend();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _scaleAnimation = Tween<double>(begin: 0.94, end: 1.06).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickAndAnalyzeFile() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -34,29 +57,60 @@ class _UploadStatementPageState extends State<UploadStatementPage> {
     // Checking Premium and Ad flow FIRST
     bool canProceed = await _checkPremiumOrAd(context);
     if (!canProceed) {
+      if (mounted && _isLoading) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = null;
+        });
+      }
       return;
     }
 
+    // Ensure the loading screen with app logo is visible while the system file picker opens
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _statusMessage = "Opening file manager...";
+      });
+    }
+
     // 1. Pick File
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'png', 'jpeg', 'pdf'],
-    );
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'png', 'jpeg', 'pdf'],
+      );
+    } catch (e) {
+      debugPrint("File picker error: $e");
+    }
 
     if (result != null) {
       File file = File(result.files.single.path!);
-      setState(() {
-        _isAnalyzing = true;
-        _statusMessage = "Reading bank statement...";
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _statusMessage = "Reading bank statement...";
+        });
+      }
 
       try {
         await _extractTransactions(file);
       } catch (e) {
         debugPrint("Error analyzing file: $e");
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _statusMessage = "Error: $e";
+          });
+        }
+      }
+    } else {
+      // User dismissed or cancelled the file picker without picking a file
+      if (mounted) {
         setState(() {
-          _isAnalyzing = false;
-          _statusMessage = "Error: $e";
+          _isLoading = false;
+          _statusMessage = null;
         });
       }
     }
@@ -175,6 +229,7 @@ class _UploadStatementPageState extends State<UploadStatementPage> {
     );
 
     if (wantsToBuyPremium) {
+      if (!mounted) return false;
       // BillingPage handles verification internally via direct Paystack API poll.
       // It pops with true only after payment is confirmed.
       bool? paymentConfirmed = await Navigator.push(
@@ -183,6 +238,13 @@ class _UploadStatementPageState extends State<UploadStatementPage> {
       );
       
       if (paymentConfirmed == true) {
+        // Payment was successful! Immediately activate the logo loading screen
+        if (mounted) {
+          setState(() {
+            _isLoading = true;
+            _statusMessage = "Payment confirmed!\nPreparing file manager...";
+          });
+        }
         // Refresh local state from Firestore, then proceed
         await premium.refresh();
         if (premium.canUpload) {
@@ -240,7 +302,7 @@ class _UploadStatementPageState extends State<UploadStatementPage> {
         ),
       );
       setState(() {
-        _isAnalyzing = false;
+        _isLoading = false;
         _statusMessage = null;
       });
     }
@@ -301,15 +363,8 @@ class _UploadStatementPageState extends State<UploadStatementPage> {
         ),
       ),
       body: Center(
-        child: _isAnalyzing
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(color: Color(0xFFE2F163)),
-                  const SizedBox(height: 20),
-                  Text(_statusMessage ?? "Processing...", style: theme.textTheme.bodyLarge),
-                ],
-              )
+        child: _isLoading
+            ? _buildLoadingScreen(theme, isDark)
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -339,13 +394,93 @@ class _UploadStatementPageState extends State<UploadStatementPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  if (_statusMessage != null) ...[
+                  if (_statusMessage != null && !_isLoading) ...[
                     const SizedBox(height: 20),
                     Text(_statusMessage!, style: const TextStyle(color: Colors.red)),
                   ],
                 ],
               ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingScreen(ThemeData theme, bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ScaleTransition(
+            scale: _scaleAnimation,
+            child: Container(
+              width: 104,
+              height: 104,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isDark ? const Color(0xFF1B2A38) : const Color(0xFFEDF2E4),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFE2F163).withOpacity(isDark ? 0.3 : 0.45),
+                    blurRadius: 30,
+                    spreadRadius: 6,
+                  ),
+                ],
+              ),
+              child: Image.asset(
+                'lib/assets/images/spendr_logo.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: 'Spend',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF0D1B2A),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const TextSpan(
+                  text: 'r',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8BAA00),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          const SizedBox(
+            width: 38,
+            height: 38,
+            child: CircularProgressIndicator(
+              strokeWidth: 3.2,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE2F163)),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              _statusMessage ?? "Loading...",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white70 : Colors.black87,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

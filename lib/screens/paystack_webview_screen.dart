@@ -76,7 +76,27 @@ class _PaystackWebViewScreenState extends State<PaystackWebViewScreen> {
         children: [
           WebViewWidget(controller: _controller),
           if (_isLoading)
-            const Center(child: CircularProgressIndicator()),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE2F163)),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Securing payment portal...',
+                    style: TextStyle(
+                      color: theme.brightness == Brightness.dark
+                          ? Colors.white70
+                          : Colors.black87,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
