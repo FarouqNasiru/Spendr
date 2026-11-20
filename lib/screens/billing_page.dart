@@ -18,6 +18,7 @@ class _BillingPageState extends State<BillingPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    PaystackService.warmUpBackend();
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -64,27 +65,21 @@ class _BillingPageState extends State<BillingPage> with WidgetsBindingObserver {
   ) async {
     setState(() => _isLoading = true);
 
-    // Launches browser, returns transaction reference
+    // Launches in-app WebView, returns transaction reference
     final reference = await PaystackService.checkout(
       context: context,
       amountNgn: amountNgn,
       planType: planName,
     );
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _pendingReference = reference;
-      });
-    }
+    if (!mounted) return;
 
-    if (reference == null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not start payment. Check your connection.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+    if (reference != null) {
+      // Payment completed in WebView! Verify immediately.
+      _pendingReference = reference;
+      await _verifyAndClose(reference);
+    } else {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -112,9 +107,18 @@ class _BillingPageState extends State<BillingPage> with WidgetsBindingObserver {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const CircularProgressIndicator(),
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      colorScheme.primary,
+                    ),
+                  ),
                   const SizedBox(height: 16),
-                  Text(_isVerifying ? 'Verifying payment...' : 'Loading...'),
+                  Text(
+                    _isVerifying
+                        ? 'Verifying payment...'
+                        : 'Connecting to payment portal...',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
                 ],
               ),
             )
