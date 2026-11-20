@@ -16,3 +16,10 @@
 -keep class com.example.spendr.BankUsageWorker {
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
+-keep class androidx.work.** { *; }
+
+# Flutter Local Notifications
+-keep class com.dexterous.flutterlocalnotifications.** { *; }
+
+# Flutter Secure Storage
+-dontwarn androidx.security.crypto.**
