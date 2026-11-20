@@ -523,13 +523,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                   color: isDark ? Colors.white : Colors.black87,
                                 ),
                               ),
-                              subtitle: Text(
-                                bank.package,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  color: isDark ? Colors.white38 : Colors.black45,
-                                ),
-                              ),
                               value: bank.isEnabled,
                               activeThumbColor: colorScheme.secondary,
                               activeTrackColor: colorScheme.primary,
